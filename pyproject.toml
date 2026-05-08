@@ -105,7 +105,7 @@ quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
 
-[tool.pytest]
-pythonpath = ["."]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
