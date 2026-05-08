@@ -1,4 +1,5 @@
 import re
+from typing import cast
 
 from fastfingertips.string_utils import extract_number_from_text
 from fastfingertips.url_utils import extract_path_segment
@@ -29,26 +30,32 @@ class MovieProfile:
             elif imdb:
                 slug = f"imdb/{imdb}"
 
+        assert slug, "Provide slug, tmdb, or imdb to build Movie URL."
+
         if slug and not str(slug).startswith("http"):
             # ID routes (tmdb/imdb) are top-level on Letterboxd
             # Standard slugs are under /film/
             prefix = "" if slug.startswith(("tmdb/", "imdb/")) else "film/"
-            self.url = f"{DOMAIN}/{prefix}{slug}/"
+            url = f"{DOMAIN}/{prefix}{slug}/"
         else:
-            self.url = slug
-
-        assert self.url, "Provide slug, tmdb, or imdb to build Movie URL."
+            url = slug
 
         # 2. Fetch and Validate
-        self.dom = parse_url(self.url)
+        self.dom = parse_url(url)
 
         if get_meta_content(self.dom, property="og:type") != "video.movie":
-            raise MovieNotFoundError(slug, self.url)
+            raise MovieNotFoundError(slug, url)
 
         # 3. State Synchronization
-        self.url = getattr(self.dom, "final_url", self.url)
+        # TODO: fix ugly hack for the final url extraction
+        self.url = cast(str, getattr(self.dom, "final_url", url))
+
         # Extract canonical slug if redirection happened, otherwise use identifier
-        self.slug = extract_path_segment(self.url, after="/film/") or slug
+        slug = extract_path_segment(self.url, after="/film/") or slug
+        if slug is None:
+            raise MovieNotFoundError("", self.url)
+
+        self.slug = slug
         self.script = extract_json_ld_script(self.dom)
 
     # one line contents
@@ -70,13 +77,13 @@ class MovieProfile:
     def get_year(self) -> int:
         return extract_movie_year(self.dom, self.script)
 
-    def get_tmdb_link(self) -> str:
+    def get_tmdb_link(self) -> str | None:
         return extract_movie_tmdb_link(self.dom)
 
     def get_tmdb_id(self) -> str | None:
         return extract_movie_tmdb_id(self.dom)
 
-    def get_imdb_link(self) -> str:
+    def get_imdb_link(self) -> str | None:
         return extract_movie_imdb_link(self.dom)
 
     def get_imdb_id(self) -> str | None:
@@ -182,13 +189,13 @@ def extract_movie_year(dom, script=None):
         return None
 
 
-def extract_movie_tmdb_link(dom):
+def extract_movie_tmdb_link(dom) -> str | None:
     """Extract TMDB link from DOM."""
     a = dom.find("a", {"data-track-action": ["TMDB"]})
     return a["href"] if a else None
 
 
-def extract_movie_tmdb_id(dom):
+def extract_movie_tmdb_id(dom) -> str | None:
     """Extract TMDB ID from DOM."""
     link = extract_movie_tmdb_link(dom)
     if link:
@@ -198,13 +205,13 @@ def extract_movie_tmdb_id(dom):
     return None
 
 
-def extract_movie_imdb_link(dom):
+def extract_movie_imdb_link(dom) -> str | None:
     """Extract IMDB link from DOM."""
     a = dom.find("a", {"data-track-action": ["IMDb"]})
     return a["href"] if a else None
 
 
-def extract_movie_imdb_id(dom):
+def extract_movie_imdb_id(dom) -> str | None:
     """Extract IMDB ID from DOM."""
     link = extract_movie_imdb_link(dom)
     if link:

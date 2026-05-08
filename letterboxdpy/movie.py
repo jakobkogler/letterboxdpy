@@ -79,7 +79,9 @@ class Movie:
         )
 
     def jsonify(self) -> dict:
-        return JsonFile.parse(self.__str__())
+        json = JsonFile.parse(self.__str__())
+        assert json
+        return json
 
     # PROFILE PAGE
     def get_url(self) -> str:
@@ -103,16 +105,16 @@ class Movie:
     def get_year(self) -> int:
         return self.pages.profile.get_year()
 
-    def get_tmdb_link(self) -> str:
+    def get_tmdb_link(self) -> str | None:
         return self.pages.profile.get_tmdb_link()
 
-    def get_tmdb_id(self) -> str:
+    def get_tmdb_id(self) -> str | None:
         return self.pages.profile.get_tmdb_id()
 
-    def get_imdb_link(self) -> str:
+    def get_imdb_link(self) -> str | None:
         return self.pages.profile.get_imdb_link()
 
-    def get_imdb_id(self) -> str:
+    def get_imdb_id(self) -> str | None:
         return self.pages.profile.get_imdb_id()
 
     def get_poster(self) -> str:
