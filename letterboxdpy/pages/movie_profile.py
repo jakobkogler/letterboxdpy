@@ -1,4 +1,6 @@
 import re
+import warnings
+from dataclasses import dataclass
 from typing import cast
 
 from fastfingertips.string_utils import extract_number_from_text
@@ -10,6 +12,22 @@ from letterboxdpy.core.exceptions import (
 )
 from letterboxdpy.core.scraper import parse_url
 from letterboxdpy.utils.utils_parser import extract_json_ld_script, get_meta_content
+
+
+@dataclass(frozen=True, slots=True)
+class MovieDetail:
+    type: str
+    name: str
+    slug: str
+    url: str
+
+    def __getitem__(self, key: str) -> str:
+        warnings.warn(
+            f"Dict-style access is deprecated. Use 'config.{key}' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return getattr(self, key)
 
 
 class MovieProfile:
@@ -108,7 +126,7 @@ class MovieProfile:
     def get_alternative_titles(self) -> list:
         return extract_movie_alternative_titles(self.dom)
 
-    def get_details(self) -> list:
+    def get_details(self) -> list[MovieDetail]:
         return extract_movie_details(self.dom)
 
     def get_genres(self) -> list:
@@ -284,7 +302,7 @@ def extract_movie_alternative_titles(dom):
     return [i.strip() for i in text.split(", ")] if text else None
 
 
-def extract_movie_details(dom):
+def extract_movie_details(dom) -> list[MovieDetail]:
     """Extract movie details from DOM."""
     data = dom.find("div", {"id": ["tab-details"]})
     data = data.find_all("a") if data else []
@@ -297,12 +315,12 @@ def extract_movie_details(dom):
         item_type, slug = url_parts[1 + _ : 3 + _]
 
         details.append(
-            {
-                "type": item_type,
-                "name": item.text.strip(),
-                "slug": slug,
-                "url": DOMAIN + "/".join(url_parts),
-            }
+            MovieDetail(
+                type=item_type,
+                name=item.text.strip(),
+                slug=slug,
+                url=DOMAIN + "/".join(url_parts),
+            )
         )
 
     return details
@@ -345,7 +363,12 @@ def extract_movie_cast(dom):
         slug = url.split("/")[-2]
 
         cast.append(
-            {"name": name, "role_name": role_name, "slug": slug, "url": DOMAIN + url}
+            {
+                "name": name,
+                "role_name": role_name,
+                "slug": slug,
+                "url": DOMAIN + url,
+            }
         )
 
     return cast
