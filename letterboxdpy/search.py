@@ -1,4 +1,6 @@
+import warnings
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from enum import Enum
 from itertools import islice
 from typing import Any
@@ -28,6 +30,41 @@ class SearchFilter(Enum):
     ARTICLES = "articles"
     EPISODES = "episodes"
     FULL_TEXT = "full-text"
+
+
+@dataclass(frozen=True, slots=True)
+class Director:
+    name: str
+    # TODO: what's a slug of a director?
+    slug: str
+    url: str
+
+    def __getitem__(self, key: str) -> str:
+        warnings.warn(
+            f"Dict-style access is deprecated. Use 'config.{key}' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return getattr(self, key)
+
+
+@dataclass(frozen=True, slots=True)
+class MovieSearchResult:
+    # TODO: do we still need the type? And why it's not an enum?
+    type: str
+    slug: str
+    title: str
+    year: int | None
+    url: str
+    directors: list[Director] | None
+
+    def __getitem__(self, key: str) -> str:
+        warnings.warn(
+            f"Dict-style access is deprecated. Use 'config.{key}' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return getattr(self, key)
 
 
 class Search:
@@ -169,20 +206,22 @@ class Search:
             case _:
                 raise ValueError
 
-    def parse_film(self, result_item_elem: Tag) -> dict[str, Any]:
+    def parse_film(self, result_item_elem: Tag) -> MovieSearchResult:
         film_container = result_item_elem.find("div", class_="react-component figure")
         slug = film_container.get("data-item-slug")
+        assert slug, "Every movie on Letterboxd must have a slug"
         name = film_container.get("data-item-name")
+        assert name, "Every movie on Letterboxd must have a name"
         title, year = extract_name_year_from_movie_title(name)
         url = f"{DOMAIN}{film_container.get('data-target-link')}"
 
-        def _parse_director(a: Tag) -> dict[str, str]:
+        def _parse_director(a: Tag) -> Director:
             href = a.get("href", "")
-            return {
-                "name": a.get_text(strip=True),
-                "slug": href.split("/")[-2],
-                "url": f"{DOMAIN}{href}",
-            }
+            return Director(
+                name=a.get_text(strip=True),
+                slug=href.split("/")[-2],
+                url=f"{DOMAIN}{href}",
+            )
 
         directors_elem = result_item_elem.find("p", class_="film-metadata")
         directors = (
@@ -193,14 +232,9 @@ class Search:
             ]
         )
 
-        return {
-            "type": "film",
-            "slug": slug,
-            "title": title,
-            "year": year,
-            "url": url,
-            "directors": directors,
-        }
+        return MovieSearchResult(
+            type="film", slug=slug, title=title, year=year, url=url, directors=directors
+        )
 
     def parse_review(self, result_item_elem: Tag) -> dict[str, Any]:
         article = result_item_elem.find("article")
