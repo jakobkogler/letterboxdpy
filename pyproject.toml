@@ -109,3 +109,9 @@ line-ending = "auto"
 pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "ruff>=0.15.14",
+]
